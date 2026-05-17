@@ -1,7 +1,21 @@
-load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_cc_test")
+load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_cc_test", "crashpad_objc_library")
 
 package(
     default_visibility = ["//visibility:public"],
+)
+
+crashpad_objc_library(
+    name = "common_mac",
+    srcs = [
+        "crash_report_database_mac.mm",
+        "crash_report_database.h",
+        "settings.h",
+    ],
+    deps = [
+        "//util",
+        "@mini_chromium",
+    ],
+    visibility = [":__pkg__"],
 )
 
 crashpad_cc_library(
@@ -17,9 +31,7 @@ crashpad_cc_library(
             "crash_report_database_generic.cc",
             "crashpad_info_note.S",
         ],
-        "//build:macos": [
-            "crash_report_database_mac.mm",
-        ],
+        "//conditions:default": [],
     }),
     hdrs = [
         "annotation.h",
@@ -35,7 +47,10 @@ crashpad_cc_library(
     deps = [
         "//util",
         "@mini_chromium",
-    ],
+    ] + select({
+        "//build:macos": [":common_mac"],
+        "//conditions:default": [],
+    }),
 )
 
 crashpad_cc_library(

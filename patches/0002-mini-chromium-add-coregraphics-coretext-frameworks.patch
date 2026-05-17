@@ -1,0 +1,9 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -148,4 +148,5 @@ objc_library(
+     target_compatible_with = ["@platforms//os:macos"],
+     visibility = [":__pkg__"],
+     deps = [":build_config"],
++    sdk_frameworks = ["CoreGraphics", "CoreText"],
+ )

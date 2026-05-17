@@ -1,0 +1,4 @@
+exports_files(
+    glob(["osfmk/**"]),
+    visibility = ["//util:__pkg__"],
+)

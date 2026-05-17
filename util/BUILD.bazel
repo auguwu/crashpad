@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library")
+load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_objc_library")
 load("//build:mig.bzl", "mig_library")
 
 package(
@@ -158,7 +158,6 @@ _POSIX_HDRS = [
 ]
 
 _MAC_SRCS = [
-    "mac/launchd.mm",
     "mac/mac_util.cc",
     "mac/service_management.cc",
     "mac/sysctl.cc",
@@ -265,14 +264,21 @@ _LINUX_HDRS = [
     "process/process_memory_sanitized.h",
 ]
 
+cc_library(
+    name = "child_port_types",
+    hdrs = ["mach/child_port_types.h"],
+    target_compatible_with = ["@platforms//os:macos"],
+    visibility = [":__pkg__"],
+)
+
 mig_library(
     name = "mig_output",
     srcs = select({
         "//build:macos": [
             "mach/child_port.defs",
-            "@macos_sdk//:usr/include/mach/exc.defs",
-            "@macos_sdk//:usr/include/mach/mach_exc.defs",
-            "@macos_sdk//:usr/include/mach/notify.defs",
+            "@mig_macos_sdk//:usr/include/mach/exc.defs",
+            "//third_party/xnu:osfmk/mach/mach_exc.defs",
+            "@mig_macos_sdk//:usr/include/mach/notify.defs",
         ],
         "//conditions:default": [],
     }),
@@ -285,7 +291,22 @@ mig_library(
         "../compat/mac",
     ],
     visibility = [":__pkg__"],
-    deps = ["//:config"],
+    deps = ["//:config", ":child_port_types"],
+)
+
+crashpad_objc_library(
+    name = "util_objc",
+    srcs = [
+        "mac/launchd.mm",
+        "mac/launchd.h",
+        "misc/implicit_cast.h",
+    ],
+    deps = [
+        ":no_cfi_icall",
+        "//compat",
+        "@mini_chromium",
+    ],
+    visibility = [":__pkg__"],
 )
 
 crashpad_cc_library(
@@ -327,9 +348,24 @@ crashpad_cc_library(
         "@mini_chromium",
     ] + select({
         "//build:linux": ["//third_party/lss"],
-        "//build:macos": [":mig_output"],
+        "//build:macos": [":mig_output", ":util_objc"],
         "//conditions:default": [],
     }),
+)
+
+crashpad_objc_library(
+    name = "net_mac",
+    srcs = [
+        "net/http_transport_mac.mm",
+        "net/http_headers.h",
+        "net/http_transport.h",
+        "net/http_body.h",
+    ],
+    deps = [
+        ":util",
+        "@mini_chromium",
+    ],
+    visibility = [":__pkg__"],
 )
 
 crashpad_cc_library(
@@ -341,8 +377,8 @@ crashpad_cc_library(
         "net/http_transport.cc",
         "net/url.cc",
     ] + select({
-        "//build:macos": ["net/http_transport_mac.mm"],
         "//build:linux": ["net/http_transport_socket.cc"],
+        "//conditions:default": [],
     }),
     hdrs = [
         "net/http_body.h",
@@ -361,6 +397,9 @@ crashpad_cc_library(
         "@mini_chromium",
     ] + select({
         "//build:with_boringssl": ["@boringssl//:ssl"],
+        "//conditions:default": [],
+    }) + select({
+        "//build:macos": [":net_mac"],
         "//conditions:default": [],
     }),
 )

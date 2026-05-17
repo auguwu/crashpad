@@ -1,4 +1,4 @@
-load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_cc_test")
+load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_cc_loadable_module", "crashpad_cc_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -110,6 +110,16 @@ _MAC_HDRS = [
     "mac/thread_snapshot_mac.h",
 ]
 
+_MAC_TEXTUAL_HDRS = [
+    "mac/process_types/all.proctype",
+    "mac/process_types/annotation.proctype",
+    "mac/process_types/crashpad_info.proctype",
+    "mac/process_types/crashreporterclient.proctype",
+    "mac/process_types/dyld_images.proctype",
+    "mac/process_types/loader.proctype",
+    "mac/process_types/nlist.proctype",
+]
+
 _LINUX_SRCS = [
     "crashpad_types/crashpad_info_reader.cc",
     "crashpad_types/image_annotation_reader.cc",
@@ -179,6 +189,10 @@ crashpad_cc_library(
         "//build:x86_64": _X86_HDRS,
         "//conditions:default": [],
     }),
+    textual_hdrs = select({
+        "//build:macos": _MAC_TEXTUAL_HDRS,
+        "//conditions:default": [],
+    }),
     deps = [
         ":context",
         "//client:common",
@@ -220,18 +234,17 @@ crashpad_cc_library(
     ],
 )
 
-crashpad_cc_binary(
+crashpad_cc_loadable_module(
     name = "crashpad_snapshot_test_module",
     testonly = True,
     srcs = ["crashpad_info_client_options_test_module.cc"],
-    linkshared = True,
     deps = [
         "//client",
         "@mini_chromium",
     ],
 )
 
-crashpad_cc_binary(
+crashpad_cc_loadable_module(
     name = "crashpad_snapshot_test_module_large",
     testonly = True,
     srcs = ["crashpad_info_size_test_module.cc"] + select({
@@ -239,7 +252,6 @@ crashpad_cc_binary(
         "//conditions:default": [],
     }),
     defines = ["CRASHPAD_INFO_SIZE_TEST_MODULE_LARGE"],
-    linkshared = True,
     deps = [
         "@mini_chromium",
     ] + select({
@@ -248,7 +260,7 @@ crashpad_cc_binary(
     }),
 )
 
-crashpad_cc_binary(
+crashpad_cc_loadable_module(
     name = "crashpad_snapshot_test_module_small",
     testonly = True,
     srcs = ["crashpad_info_size_test_module.cc"] + select({
@@ -256,7 +268,6 @@ crashpad_cc_binary(
         "//conditions:default": [],
     }),
     defines = ["CRASHPAD_INFO_SIZE_TEST_MODULE_SMALL"],
-    linkshared = True,
     deps = [
         "@mini_chromium",
     ] + select({
@@ -265,20 +276,18 @@ crashpad_cc_binary(
     }),
 )
 
-crashpad_cc_binary(
+crashpad_cc_loadable_module(
     name = "crashpad_snapshot_test_both_dt_hash_styles",
     testonly = True,
     srcs = ["hash_types_test.cc"],
     linkopts = ["-Wl,--hash-style=both"],
-    linkshared = True,
     target_compatible_with = ["@platforms//os:linux"],
 )
 
-crashpad_cc_binary(
+crashpad_cc_loadable_module(
     name = "crashpad_snapshot_test_module_crashy_initializer",
     testonly = True,
     srcs = ["mac/mach_o_image_annotations_reader_test_module_crashy_initializer.cc"],
-    linkshared = True,
     target_compatible_with = ["@platforms//os:macos"],
 )
 

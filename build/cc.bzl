@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+load("@rules_cc//cc:objc_library.bzl", "objc_library")
 
 _WIN_DEFINES = [
     "NOMINMAX",
@@ -11,7 +12,6 @@ _WIN_DEFINES = [
 
 _CLANG_WARNINGS = [
     "-Wall",
-    "-Werror",
     "-Wextra",
     "-Wendif-labels",
     "-Wextra-semi",
@@ -76,6 +76,52 @@ _MSVC_SUPPRESSIONS = [
     "/wd4351",
     "/wd4577",
 ]
+
+def crashpad_objc_library(
+        name,
+        deps = [],
+        copts = [],
+        **kwargs):
+    objc_library(
+        name = name,
+        deps = ["//:config"] + deps,
+        copts = _CLANG_WARNINGS + _POSIX_HARDENING + [
+            "-fobjc-arc",
+            "-std=c++23",
+        ] + select({
+            "//build:dbg_clang": ["-g"],
+            "//build:opt_clang": ["-O3"],
+            "//conditions:default": [],
+        }) + copts,
+        target_compatible_with = ["@platforms//os:macos"],
+        **kwargs
+    )
+
+def crashpad_objc_binary(
+        name,
+        srcs = [],
+        deps = [],
+        copts = [],
+        linkopts = [],
+        **kwargs):
+    crashpad_objc_library(
+        name = name + "_objc_srcs",
+        srcs = srcs,
+        deps = deps,
+        copts = copts,
+        visibility = ["//visibility:private"],
+    )
+
+    cc_binary(
+        name = name,
+        deps = [":" + name + "_objc_srcs"],
+        linkopts = select({
+            "//build:opt_macos": ["-Wl,-dead_strip"],
+            "//conditions:default": [],
+        }) + linkopts,
+        target_compatible_with = ["@platforms//os:macos"],
+        **kwargs
+    )
 
 def crashpad_cc_library(
         name,
@@ -259,6 +305,28 @@ def crashpad_cc_binary(
         }) + linkopts,
         linkstatic = linkstatic,
         **kwargs
+    )
+
+def crashpad_cc_loadable_module(
+        name,
+        testonly = False,
+        target_compatible_with = [],
+        **kwargs):
+    crashpad_cc_binary(
+        name = name + "_shared",
+        linkshared = True,
+        testonly = testonly,
+        target_compatible_with = target_compatible_with,
+        **kwargs
+    )
+
+    native.genrule(
+        name = name,
+        srcs = [":" + name + "_shared"],
+        outs = [name + ".so"],
+        cmd = "cp $(SRCS) $@",
+        testonly = testonly,
+        target_compatible_with = target_compatible_with,
     )
 
 def crashpad_cc_test(

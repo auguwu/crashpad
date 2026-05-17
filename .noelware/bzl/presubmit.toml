@@ -1,0 +1,13 @@
+# This is Noelware's version of the BCR presubmit.
+# https://bzl.noelware.cloud/docs/presubmit
+
+platforms = ["gha:ubuntu-24.04", "gha:macos-26", "gha:windows-2025"]
+bazel = ["8.x", "9.x"]
+
+[[task]]
+name = "build"
+cmd = "${{bazel}} build //..."
+
+[[task]]
+name = "test"
+cmd = "${{bazel}} test //..."

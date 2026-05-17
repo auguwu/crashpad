@@ -1,4 +1,4 @@
-load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library")
+load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_objc_binary")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -129,15 +129,13 @@ crashpad_cc_binary(
     ],
 )
 
-crashpad_cc_binary(
+crashpad_objc_binary(
     name = "on_demand_service_tool",
     srcs = ["mac/on_demand_service_tool.mm"],
-    copts = ["-fobjc-arc"],
     linkopts = [
         "-framework CoreFoundation",
         "-framework Foundation",
     ],
-    target_compatible_with = ["@platforms//os:macos"],
     deps = [
         ":tool_support",
         "//compat",
