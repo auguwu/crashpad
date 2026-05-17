@@ -1,0 +1,6 @@
+common --registry=https://raw.githubusercontent.com/Noelware/bazel-registry/master/
+common --registry=https://bcr.bazel.build
+
+# on NixOS, $TZDIR is not in a valid location that the snapshot test needs. So, we'll re-route
+# $TZDIR to whatever is set.
+test --test_env=TZDIR

@@ -1,0 +1,96 @@
+diff --git a/client/BUILD.bazel b/client/BUILD.bazel
+--- a/client/BUILD.bazel
++++ b/client/BUILD.bazel
+@@ -110,14 +110,18 @@ crashpad_cc_test(
+     ] + select({
+         "//build:linux": ["crashpad_client_linux_test.cc"],
+         "//build:macos": ["simulate_crash_mac_test.cc"],
+     }),
+     data = ["//handler:crashpad_handler"],
++    env = {
++        "CRASHPAD_HANDLER_RLOCATION": "$(rlocationpath //handler:crashpad_handler)",
++    },
+     deps = [
+         ":client",
+         "//compat",
+         "//snapshot",
+         "//test",
+         "//util",
++        "@bazel_tools//tools/cpp/runfiles",
+         "@googletest//:gtest",
+         "@mini_chromium",
+     ],
+ )
+diff --git a/client/crashpad_client_linux_test.cc b/client/crashpad_client_linux_test.cc
+--- a/client/crashpad_client_linux_test.cc
++++ b/client/crashpad_client_linux_test.cc
+@@ -51,8 +51,13 @@
+ #include "util/posix/scoped_mmap.h"
+ #include "util/posix/signals.h"
+ #include "util/thread/thread.h"
+
++#if __has_include("tools/cpp/runfiles/runfiles.h")
++#include "tools/cpp/runfiles/runfiles.h"
++#define CRASHPAD_HAS_BAZEL_RUNFILES 1
++#endif
++
+ #if BUILDFLAG(IS_ANDROID)
+ #include <android/set_abort_message.h>
+ #include "dlfcn_internal.h"
+
+ // Normally this comes from set_abort_message.h, but only at API level 21.
+@@ -64,8 +69,23 @@
+ namespace crashpad {
+ namespace test {
+ namespace {
+
++base::FilePath GetHandlerPath() {
++#if defined(CRASHPAD_HAS_BAZEL_RUNFILES)
++  std::string error;
++  std::unique_ptr<bazel::tools::cpp::runfiles::Runfiles> runfiles(
++      bazel::tools::cpp::runfiles::Runfiles::CreateForTest(&error));
++  CHECK(runfiles) << error;
++  const char* rlocation = getenv("CRASHPAD_HANDLER_RLOCATION");
++  CHECK(rlocation) << "CRASHPAD_HANDLER_RLOCATION not set";
++  return base::FilePath(runfiles->Rlocation(rlocation));
++#else
++  return TestPaths::Executable().DirName().Append(
++      FILE_PATH_LITERAL("crashpad_handler"));
++#endif
++}
++
+ enum class CrashType : uint32_t {
+   kSimulated,
+   kBuiltinTrap,
+   kInfiniteRecursion,
+   kSegvWithTagBits,
+@@ -393,12 +413,11 @@ CRASHPAD_CHILD_TEST_MAIN(StartHandlerForSelfTestChild) {
+   if (options.gather_indirectly_referenced_memory) {
+     CrashpadInfo::GetCrashpadInfo()->set_gather_indirectly_referenced_memory(
+         TriState::kEnabled, 1024 * 1024 * 4);
+   }
+
+-  base::FilePath handler_path = TestPaths::Executable().DirName().Append(
+-      FILE_PATH_LITERAL("crashpad_handler"));
++  base::FilePath handler_path = GetHandlerPath();
+
+   crashpad::AnnotationList::Register();
+
+   static StringAnnotation<32> test_annotation(kTestAnnotationName);
+   test_annotation.Set(kTestAnnotationValue);
+@@ -622,12 +641,11 @@ class StartHandlerForClientTest {
+   bool StartHandlerOnDemand() {
+     char c;
+     if (!LoggingReadFileExactly(server_sock_.get(), &c, sizeof(c))) {
+       ADD_FAILURE();
+       return false;
+     }
+
+-    base::FilePath handler_path = TestPaths::Executable().DirName().Append(
+-        FILE_PATH_LITERAL("crashpad_handler"));
++    base::FilePath handler_path = GetHandlerPath();
+
+     CrashpadClient client;
+     if (!client.StartHandlerForClient(handler_path,
+                                         temp_dir_.path(),
+                                         base::FilePath(),

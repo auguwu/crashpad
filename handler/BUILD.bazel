@@ -1,0 +1,133 @@
+load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+crashpad_cc_library(
+    name = "common",
+    srcs = [
+        "crash_report_upload_rate_limit.cc",
+        "crash_report_upload_thread.cc",
+        "minidump_to_upload_parameters.cc",
+        "user_stream_data_source.cc",
+    ] + select({
+        "//build:macos": [
+            "mac/file_limit_annotation.cc",
+        ],
+        "//conditions:default": [],
+    }),
+    hdrs = [
+        "crash_report_upload_rate_limit.h",
+        "crash_report_upload_thread.h",
+        "minidump_to_upload_parameters.h",
+        "user_stream_data_source.h",
+    ] + select({
+        "//build:macos": [
+            "mac/file_limit_annotation.h",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//client:common",
+        "//minidump",
+        "//snapshot",
+        "//util",
+        "//util:net",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_library(
+    name = "handler",
+    srcs = [
+        "handler_main.cc",
+        "prune_crash_reports_thread.cc",
+    ] + select({
+        "//build:linux": [
+            "linux/capture_snapshot.cc",
+            "linux/crash_report_exception_handler.cc",
+            "linux/cros_crash_report_exception_handler.cc",
+            "linux/exception_handler_server.cc",
+        ],
+        "//build:macos": [
+            "mac/crash_report_exception_handler.cc",
+            "mac/exception_handler_server.cc",
+        ],
+    }),
+    hdrs = [
+        "handler_main.h",
+        "prune_crash_reports_thread.h",
+    ] + select({
+        "//build:linux": [
+            "linux/capture_snapshot.h",
+            "linux/crash_report_exception_handler.h",
+            "linux/cros_crash_report_exception_handler.h",
+            "linux/exception_handler_server.h",
+        ],
+        "//build:macos": [
+            "mac/crash_report_exception_handler.h",
+            "mac/exception_handler_server.h",
+        ],
+    }),
+    deps = [
+        ":common",
+        "//client",
+        "//minidump",
+        "//snapshot",
+        "//tools:tool_support",
+        "//util",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "crashpad_handler",
+    srcs = ["main.cc"],
+    deps = [
+        ":handler",
+        "//compat",
+        "//tools:tool_support",
+        "@mini_chromium",
+    ] + select({
+        "//build:linux": ["//client:pthread_create"],
+        "//conditions:default": [],
+    }),
+)
+
+crashpad_cc_binary(
+    name = "crashpad_handler_test_extended_handler",
+    testonly = True,
+    srcs = ["crashpad_handler_test_extended_handler.cc"],
+    deps = [
+        ":handler",
+        "//compat",
+        "//minidump:test_support",
+        "//tools:tool_support",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_test(
+    name = "handler_test",
+    srcs = [
+        "crash_report_upload_rate_limit_test.cc",
+        "minidump_to_upload_parameters_test.cc",
+    ] + select({
+        "//build:linux": [
+            "linux/exception_handler_server_test.cc",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":handler",
+        "//client",
+        "//compat",
+        "//snapshot",
+        "//snapshot:test_support",
+        "//test",
+        "//util",
+        "@googletest//:gtest",
+        "@mini_chromium",
+    ],
+)

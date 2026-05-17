@@ -1,0 +1,9 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "lss",
+    hdrs = ["lss.h"],
+    defines = ["CRASHPAD_LSS_SOURCE_EXTERNAL"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@lss"],
+)

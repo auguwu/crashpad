@@ -1,0 +1,38 @@
+module(
+    name = "crashpad",
+    version = "0.8.0",
+    bazel_compatibility = [">=7.2.1"],  # for `overlay/` directory
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "zlib", version = "1.3.2")
+bazel_dep(name = "mini_chromium", version = "0.0.0-706fce5b")
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
+bazel_dep(name = "boringssl", version = "0.20260508.0")
+
+# Force `libpfm` dependency to be `4.13.0`. This is required by `google_benchmark` for `boringssl`.
+bazel_dep(name = "libpfm", version = "4.13.0")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "lss",
+    build_file_content = """\
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "lss",
+    hdrs = ["linux_syscall_support.h"],
+    visibility = ["//visibility:public"],
+    include_prefix = "third_party/lss",
+)
+    """,
+    integrity = "sha256-DWzRJ7F4IZHTPqZplsneJXqai7ZoN+hLhIGO74b5WCo=",
+    urls = ["https://chromium.googlesource.com/linux-syscall-support/+archive/9719c1e1e676814c456b55f5f070eabad6709d31.tar.gz"],
+)
+
+macos_sdk = use_repo_rule("//build/mig:sdk.bzl", "mig_macos_sdk")
+
+macos_sdk(name = "mig_macos_sdk")

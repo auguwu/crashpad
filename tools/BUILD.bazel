@@ -1,0 +1,147 @@
+load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+crashpad_cc_library(
+    name = "tool_support",
+    srcs = ["tool_support.cc"],
+    hdrs = ["tool_support.h"],
+    deps = ["@mini_chromium"],
+)
+
+crashpad_cc_binary(
+    name = "dump_minidump_annotations",
+    srcs = ["dump_minidump_annotations.cc"],
+    deps = [
+        ":tool_support",
+        "//client",
+        "//snapshot",
+        "//util",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "crashpad_database_util",
+    srcs = ["crashpad_database_util.cc"],
+    deps = [
+        ":tool_support",
+        "//client",
+        "//compat",
+        "//util",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "crashpad_http_upload",
+    srcs = ["crashpad_http_upload.cc"],
+    deps = [
+        ":tool_support",
+        "//compat",
+        "//util",
+        "//util:net",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "base94_encoder",
+    srcs = ["base94_encoder.cc"],
+    deps = [
+        ":tool_support",
+        "//util",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "generate_dump",
+    srcs = ["generate_dump.cc"],
+    additional_linker_inputs = select({
+        "//build:macos": ["mac/sectaskaccess_info.plist"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "//build:macos": [
+            "-sectcreate",
+            "__TEXT",
+            "__info_plist",
+            "$(location mac/sectaskaccess_info.plist)",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":tool_support",
+        "//compat",
+        "//minidump",
+        "//snapshot",
+        "//util",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "run_with_crashpad",
+    srcs = ["run_with_crashpad.cc"],
+    target_compatible_with = select({
+        "//build:macos": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":tool_support",
+        "//client",
+        "//compat",
+        "//util",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "catch_exception_tool",
+    srcs = ["mac/catch_exception_tool.cc"],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        ":tool_support",
+        "//compat",
+        "//util",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "exception_port_tool",
+    srcs = ["mac/exception_port_tool.cc"],
+    additional_linker_inputs = ["mac/sectaskaccess_info.plist"],
+    linkopts = [
+        "-sectcreate",
+        "__TEXT",
+        "__info_plist",
+        "$(location mac/sectaskaccess_info.plist)",
+    ],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        ":tool_support",
+        "//compat",
+        "//util",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "on_demand_service_tool",
+    srcs = ["mac/on_demand_service_tool.mm"],
+    copts = ["-fobjc-arc"],
+    linkopts = [
+        "-framework CoreFoundation",
+        "-framework Foundation",
+    ],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        ":tool_support",
+        "//compat",
+        "//util",
+        "@mini_chromium",
+    ],
+)

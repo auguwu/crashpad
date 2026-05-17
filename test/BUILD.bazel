@@ -1,0 +1,154 @@
+load("//build:cc.bzl", "crashpad_cc_binary", "crashpad_cc_library", "crashpad_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+_COMMON_SRCS = [
+    "errors.cc",
+    "file.cc",
+    "filesystem.cc",
+    "hex_string.cc",
+    "main_arguments.cc",
+    "multiprocess_exec.cc",
+    "process_type.cc",
+    "scoped_module_handle.cc",
+    "scoped_temp_dir.cc",
+    "test_paths.cc",
+]
+
+_COMMON_HDRS = [
+    "errors.h",
+    "file.h",
+    "filesystem.h",
+    "gtest_death.h",
+    "hex_string.h",
+    "main_arguments.h",
+    "multiprocess.h",
+    "multiprocess_exec.h",
+    "process_type.h",
+    "scoped_guarded_page.h",
+    "scoped_module_handle.h",
+    "scoped_set_thread_name.h",
+    "scoped_temp_dir.h",
+    "test_paths.h",
+]
+
+_POSIX_SRCS = [
+    "multiprocess_exec_posix.cc",
+    "multiprocess_posix.cc",
+    "scoped_guarded_page_posix.cc",
+    "scoped_set_thread_name_posix.cc",
+    "scoped_temp_dir_posix.cc",
+]
+
+_MAC_SRCS = [
+    "mac/dyld.cc",
+    "mac/exception_swallower.cc",
+    "mac/mach_errors.cc",
+    "mac/mach_multiprocess.cc",
+]
+
+_MAC_HDRS = [
+    "mac/dyld.h",
+    "mac/exception_swallower.h",
+    "mac/mach_errors.h",
+    "mac/mach_multiprocess.h",
+]
+
+_LINUX_SRCS = [
+    "linux/fake_ptrace_connection.cc",
+    "linux/get_tls.cc",
+]
+
+_LINUX_HDRS = [
+    "linux/fake_ptrace_connection.h",
+    "linux/get_tls.h",
+]
+
+crashpad_cc_library(
+    name = "test",
+    testonly = True,
+    srcs = _COMMON_SRCS + _POSIX_SRCS + select({
+        "//build:linux": _LINUX_SRCS,
+        "//build:macos": _MAC_SRCS,
+    }),
+    hdrs = _COMMON_HDRS + select({
+        "//build:linux": _LINUX_HDRS,
+        "//build:macos": _MAC_HDRS,
+    }),
+    data = ["test_paths_test_data_root.txt"],
+    linkopts = select({
+        "//build:macos": ["-lbsm"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//compat",
+        "//util",
+        "@googletest//:gtest",
+        "@mini_chromium",
+    ] + select({
+        "//build:macos": [
+            "//handler",
+            "//snapshot",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+crashpad_cc_library(
+    name = "googlemock_main",
+    testonly = True,
+    srcs = ["gtest_main.cc"],
+    defines = ["CRASHPAD_TEST_LAUNCHER_GOOGLEMOCK"],
+    deps = [
+        ":test",
+        "@googletest//:gtest",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_library(
+    name = "googletest_main",
+    testonly = True,
+    srcs = ["gtest_main.cc"],
+    defines = ["CRASHPAD_TEST_LAUNCHER_GOOGLETEST"],
+    deps = [
+        ":test",
+        "@googletest//:gtest",
+        "@mini_chromium",
+    ],
+)
+
+crashpad_cc_binary(
+    name = "crashpad_test_test_multiprocess_exec_test_child",
+    testonly = True,
+    srcs = ["multiprocess_exec_test_child.cc"],
+    deps = ["@mini_chromium"],
+)
+
+crashpad_cc_test(
+    name = "test_test",
+    srcs = [
+        "hex_string_test.cc",
+        "main_arguments_test.cc",
+        "multiprocess_exec_test.cc",
+        "scoped_guarded_page_test.cc",
+        "scoped_temp_dir_test.cc",
+        "test_paths_test.cc",
+    ] + select({
+        "//build:linux": ["multiprocess_posix_test.cc"],
+        "//build:macos": [
+            "mac/mach_multiprocess_test.cc",
+            "multiprocess_posix_test.cc",
+        ],
+    }),
+    data = [":crashpad_test_test_multiprocess_exec_test_child"],
+    deps = [
+        ":test",
+        "//compat",
+        "//util",
+        "@googletest//:gtest",
+        "@mini_chromium",
+    ],
+)

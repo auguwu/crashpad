@@ -49,3 +49,5 @@
 /third_party/zlib/zlib
 /xcodebuild
 tags
+bazel-*
+external

@@ -1,0 +1,17 @@
+load("//build:cc.bzl", "crashpad_cc_library")
+
+crashpad_cc_library(
+    name = "compat",
+    hdrs = glob(["non_win/**/*.h"]) + select({
+        "//build:linux": glob(["linux/**/*.h"]) + glob(["non_mac/**/*.h"]),
+        "//build:macos": glob(["mac/**/*.h"]),
+    }),
+    includes = ["non_win"] + select({
+        "//build:linux": [
+            "linux",
+            "non_mac",
+        ],
+        "//build:macos": ["mac"],
+    }),
+    visibility = ["//visibility:public"],
+)

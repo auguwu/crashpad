@@ -1,0 +1,9 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "zlib",
+    hdrs = ["zlib_crashpad.h"],
+    defines = ["CRASHPAD_ZLIB_SOURCE_EXTERNAL"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@zlib"],
+)
