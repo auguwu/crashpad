@@ -51,3 +51,4 @@
 tags
 bazel-*
 external
+compile_commands.json

@@ -95,7 +95,7 @@ crashpad_cc_binary(
 
 crashpad_cc_test(
     name = "client_test",
-    size = "large",
+    size = "small",
     srcs = [
         "annotation_list_test.cc",
         "annotation_test.cc",
@@ -112,6 +112,9 @@ crashpad_cc_test(
         "//build:macos": ["simulate_crash_mac_test.cc"],
     }),
     data = ["//handler:crashpad_handler"],
+    env = {
+        "CRASHPAD_HANDLER_RLOCATION": "$(rlocationpath //handler:crashpad_handler)",
+    },
     deps = [
         ":client",
         "//compat",
@@ -120,5 +123,6 @@ crashpad_cc_test(
         "//util",
         "@googletest//:gtest",
         "@mini_chromium",
+        "@rules_cc//cc/runfiles",
     ],
 )
