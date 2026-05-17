@@ -1,0 +1,73 @@
+diff --git a/client/crashpad_client_linux_test.cc b/client/crashpad_client_linux_test.cc
+index c0bba403..7568ead7 100644
+--- a/client/crashpad_client_linux_test.cc
++++ b/client/crashpad_client_linux_test.cc
+@@ -61,10 +61,32 @@ extern "C" void android_set_abort_message(const char* msg)
+     __attribute__((weak));
+ #endif
+
++#if defined(__has_include) && __has_include("rules_cc/cc/runfiles/runfiles.h")
++#include "rules_cc/cc/runfiles/runfiles.h"
++#define CRASHPAD_HAS_BAZEL_RUNFILES 1
++#endif
++
+ namespace crashpad {
+ namespace test {
+ namespace {
+
++base::FilePath GetHandlerPath() {
++#if defined(CRASHPAD_HAS_BAZEL_RUNFILES)
++  std::string error;
++  std::unique_ptr<rules_cc::cc::runfiles::Runfiles> runfiles(
++      rules_cc::cc::runfiles::Runfiles::CreateForTest(&error));
++
++  CHECK(runfiles) << error;
++  const char* rlocation = ::getenv("CRASHPAD_HANDLER_RLOCATION");
++  CHECK(rlocation) << "`$CRASHPAD_HANDLER_RLOCATION' was not set";
++
++  return base::FilePath(runfiles->Rlocation(rlocation));
++#else
++  return TestPaths::Executable().DirName().Append(
++      FILE_PATH_LITERAL("crashpad_handler"));
++#endif
++}
++
+ enum class CrashType : uint32_t {
+   kSimulated,
+   kBuiltinTrap,
+@@ -395,9 +417,7 @@ CRASHPAD_CHILD_TEST_MAIN(StartHandlerForSelfTestChild) {
+         TriState::kEnabled, 1024 * 1024 * 4);
+   }
+
+-  base::FilePath handler_path = TestPaths::Executable().DirName().Append(
+-      FILE_PATH_LITERAL("crashpad_handler"));
+-
++  base::FilePath handler_path = GetHandlerPath();
+   crashpad::AnnotationList::Register();
+
+   static StringAnnotation<32> test_annotation(kTestAnnotationName);
+@@ -623,17 +643,15 @@ class StartHandlerForClientTest {
+       return false;
+     }
+
+-    base::FilePath handler_path = TestPaths::Executable().DirName().Append(
+-        FILE_PATH_LITERAL("crashpad_handler"));
+-
++    base::FilePath handler_path = GetHandlerPath();
+     CrashpadClient client;
+     if (!client.StartHandlerForClient(handler_path,
+-                                        temp_dir_.path(),
+-                                        base::FilePath(),
+-                                        "",
+-                                        std::map<std::string, std::string>(),
+-                                        std::vector<std::string>(),
+-                                        server_sock_.get())) {
++                                      temp_dir_.path(),
++                                      base::FilePath(),
++                                      "",
++                                      std::map<std::string, std::string>(),
++                                      std::vector<std::string>(),
++                                      server_sock_.get())) {
+       ADD_FAILURE();
+       return false;
+     }

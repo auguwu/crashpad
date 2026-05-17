@@ -1,0 +1,1 @@
+The `patches/` directory is primarily useful for Noelware's submission of `crashpad` on their Bazel registry, which makes it a lot easier what we patched from the original source.
