@@ -324,6 +324,7 @@ _TEST_LINUX_SRCS = [
     "linux/process_reader_linux_test.cc",
     "linux/system_snapshot_linux_test.cc",
     "linux/test_modules.cc",
+    "sanitized/memory_snapshot_sanitized_test.cc",
     "sanitized/process_snapshot_sanitized_test.cc",
     "sanitized/sanitization_information_test.cc",
     "crashpad_types/crashpad_info_reader_test.cc",

@@ -276,7 +276,7 @@ mig_library(
     srcs = select({
         "//build:macos": [
             "mach/child_port.defs",
-            "//third_party/xnu:osfmk/mach/mach_exc.defs",
+            "//third_party/xnu:xnu/osfmk/mach/mach_exc.defs",
             "@mig_macos_sdk//:usr/include/mach/exc.defs",
             "@mig_macos_sdk//:usr/include/mach/notify.defs",
         ],

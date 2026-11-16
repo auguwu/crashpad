@@ -1,11 +1,11 @@
 diff --git a/client/crashpad_client_linux_test.cc b/client/crashpad_client_linux_test.cc
-index c0bba403..7568ead7 100644
+index 3fb26443..83721b3d 100644
 --- a/client/crashpad_client_linux_test.cc
 +++ b/client/crashpad_client_linux_test.cc
-@@ -61,10 +61,32 @@ extern "C" void android_set_abort_message(const char* msg)
-     __attribute__((weak));
+@@ -57,10 +57,32 @@
+ #include <android/set_abort_message.h>
  #endif
-
+ 
 +#if defined(__has_include) && __has_include("rules_cc/cc/runfiles/runfiles.h")
 +#include "rules_cc/cc/runfiles/runfiles.h"
 +#define CRASHPAD_HAS_BAZEL_RUNFILES 1
@@ -14,7 +14,7 @@ index c0bba403..7568ead7 100644
  namespace crashpad {
  namespace test {
  namespace {
-
+ 
 +base::FilePath GetHandlerPath() {
 +#if defined(CRASHPAD_HAS_BAZEL_RUNFILES)
 +  std::string error;
@@ -35,21 +35,21 @@ index c0bba403..7568ead7 100644
  enum class CrashType : uint32_t {
    kSimulated,
    kBuiltinTrap,
-@@ -395,9 +417,7 @@ CRASHPAD_CHILD_TEST_MAIN(StartHandlerForSelfTestChild) {
+@@ -388,9 +410,7 @@ CRASHPAD_CHILD_TEST_MAIN(StartHandlerForSelfTestChild) {
          TriState::kEnabled, 1024 * 1024 * 4);
    }
-
+ 
 -  base::FilePath handler_path = TestPaths::Executable().DirName().Append(
 -      FILE_PATH_LITERAL("crashpad_handler"));
 -
 +  base::FilePath handler_path = GetHandlerPath();
    crashpad::AnnotationList::Register();
-
+ 
    static StringAnnotation<32> test_annotation(kTestAnnotationName);
-@@ -623,17 +643,15 @@ class StartHandlerForClientTest {
+@@ -614,17 +634,15 @@ class StartHandlerForClientTest {
        return false;
      }
-
+ 
 -    base::FilePath handler_path = TestPaths::Executable().DirName().Append(
 -        FILE_PATH_LITERAL("crashpad_handler"));
 -

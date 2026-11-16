@@ -1,5 +1,3 @@
-# build/mig/mig.bzl
-
 load("@rules_cc//cc:defs.bzl", "cc_library")
 
 def _mig_gen_impl(ctx):

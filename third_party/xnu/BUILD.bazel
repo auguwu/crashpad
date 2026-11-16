@@ -1,4 +1,4 @@
 exports_files(
-    glob(["osfmk/**"]),
+    glob(["xnu/osfmk/**"]),
     visibility = ["//util:__pkg__"],
 )
