@@ -68,7 +68,7 @@ crashpad_cc_binary(
             "-sectcreate",
             "__TEXT",
             "__info_plist",
-            "$(location mac/sectaskaccess_info.plist)",
+            "$(execpath mac/sectaskaccess_info.plist)",
         ],
         "//conditions:default": [],
     }),
@@ -118,7 +118,7 @@ crashpad_cc_binary(
         "-sectcreate",
         "__TEXT",
         "__info_plist",
-        "$(location mac/sectaskaccess_info.plist)",
+        "$(execpath mac/sectaskaccess_info.plist)",
     ],
     target_compatible_with = ["@platforms//os:macos"],
     deps = [

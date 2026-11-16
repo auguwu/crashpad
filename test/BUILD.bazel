@@ -80,6 +80,7 @@ crashpad_cc_library(
     data = ["test_paths_test_data_root.txt"],
     linkopts = select({
         "//build:macos": ["-lbsm"],
+        "//build:windows": ["shell32.lib"],
         "//conditions:default": [],
     }),
     deps = [

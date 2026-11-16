@@ -2,6 +2,10 @@ load("//build:cc.bzl", "crashpad_cc_library")
 
 crashpad_cc_library(
     name = "compat",
+    srcs = select({
+        "//build:linux": ["linux/sys/mman_memfd_create.cc"],
+        "//conditions:default": [],
+    }),
     hdrs = glob(["non_win/**/*.h"]) + select({
         "//build:linux": glob(["linux/**/*.h"]) + glob(["non_mac/**/*.h"]),
         "//build:macos": glob(["mac/**/*.h"]),
@@ -12,6 +16,10 @@ crashpad_cc_library(
             "non_mac",
         ],
         "//build:macos": ["mac"],
+    }),
+    deps = select({
+        "//build:linux": ["//util:no_cfi_icall"],
+        "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
 )

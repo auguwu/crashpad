@@ -193,6 +193,10 @@ crashpad_cc_library(
         "//build:macos": _MAC_TEXTUAL_HDRS,
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "//build:windows": ["powrprof.lib"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":context",
         "//client:common",
@@ -363,7 +367,7 @@ crashpad_cc_test(
     ],
     linkopts = select({
         "//build:linux": [
-            "-Wl,--dynamic-list,$(location elf/test_exported_symbols.sym)",
+            "-Wl,--dynamic-list,$(execpath elf/test_exported_symbols.sym)",
             "-ldl",
         ],
         "//build:macos": [

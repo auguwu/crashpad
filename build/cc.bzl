@@ -71,6 +71,7 @@ _MSVC_COMMON = [
     "/W4",
     "/Zi",
     "/bigobj",
+    "/wd4201",
     "/wd4996",
 ]
 
@@ -132,7 +133,7 @@ def _conlyopts():
     })
 
 def _defines():
-    return select({
+    return ["CRASHPAD_FLOCK_ALWAYS_SUPPORTED=1"] + select({
         "//build:linux": ["_FILE_OFFSET_BITS=64"],
         "//conditions:default": [],
     })

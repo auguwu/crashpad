@@ -80,6 +80,10 @@ crashpad_cc_library(
             "simulate_crash_mac.h",
         ],
     }),
+    linkopts = select({
+        "//build:windows": ["rpcrt4.lib"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":common",
         "//util",
