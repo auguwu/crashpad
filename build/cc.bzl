@@ -10,12 +10,12 @@ _WIN_DEFINES = [
     "_UNICODE",
 ]
 
-_CLANG_WARNINGS = [
-    "-Wall",
-    "-Wextra",
+_CLANG_ONLY_WARNINGS = [
     "-Wendif-labels",
+    "-Wexit-time-destructors",
     "-Wextra-semi",
     "-Wheader-hygiene",
+    "-Wimplicit-fallthrough",
     "-Wnewline-eof",
     "-Wno-missing-field-initializers",
     "-Wno-unused-parameter",
@@ -23,6 +23,11 @@ _CLANG_WARNINGS = [
     "-Wstring-conversion",
     "-Wvla",
 ]
+
+_CLANG_WARNINGS = [
+    "-Wall",
+    "-Wextra",
+] + _CLANG_ONLY_WARNINGS
 
 _GCC_WARNINGS = [
     "-Wall",
@@ -64,7 +69,7 @@ _CLANG_CL_SUPPRESSIONS = [
 _MSVC_COMMON = [
     "/FS",
     "/W4",
-    "/WX",
+    "/Zi",
     "/bigobj",
     "/wd4996",
 ]
@@ -77,6 +82,98 @@ _MSVC_SUPPRESSIONS = [
     "/wd4577",
 ]
 
+def _copts():
+    return select({
+        "//build:msvc-cl": _MSVC_COMMON + _MSVC_SUPPRESSIONS,
+        "//build:clang-cl": _MSVC_COMMON + _CLANG_ONLY_WARNINGS + _CLANG_CL_SUPPRESSIONS,
+        "//build:clang": _CLANG_WARNINGS + _POSIX_HARDENING,
+        "//build:gcc": _GCC_WARNINGS + _POSIX_HARDENING,
+        "//conditions:default": [],
+    }) + select({
+        "//build:linux": [
+            "-fPIC",
+            "-pthread",
+        ],
+        "//build:macos": ["-fobjc-call-cxx-cdtors"],
+        "//conditions:default": [],
+    }) + select({
+        "//build:dbg_clang": ["-g"],
+        "//build:dbg_gcc": ["-g"],
+        "//build:opt_clang": ["-O3"],
+        "//build:opt_gcc": ["-O3"],
+        "//build:opt_msvc-cl": [
+            "/O2",
+            "/Ob2",
+            "/Oy-",
+            "/Zc:inline",
+        ],
+        "//conditions:default": [],
+    }) + select({
+        "//build:opt_linux": [
+            "-fdata-sections",
+            "-ffunction-sections",
+        ],
+        "//conditions:default": [],
+    })
+
+def _cxxopts():
+    return select({
+        "//build:msvc-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
+        "//build:clang-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
+        "//build:clang": ["-std=c++23"],
+        "//build:gcc": ["-std=c++23"],
+    })
+
+def _conlyopts():
+    return select({
+        "//build:clang": ["-std=c11"],
+        "//build:gcc": ["-std=c11"],
+        "//conditions:default": [],
+    })
+
+def _defines():
+    return select({
+        "//build:linux": ["_FILE_OFFSET_BITS=64"],
+        "//conditions:default": [],
+    })
+
+def _local_defines():
+    return select({
+        "//build:windows": _WIN_DEFINES,
+        "//conditions:default": [],
+    })
+
+def _library_linkopts():
+    return select({
+        "//build:linux": [
+            "-pthread",
+            "-ldl",
+        ],
+        "//build:windows": ["kernel32.lib"],
+        "//conditions:default": [],
+    })
+
+def _binary_linkopts(shared = False):
+    return _library_linkopts() + select({
+        "//build:linux": [
+            "-Wl,--as-needed",
+            "-Wl,-z,noexecstack",
+        ] + ([] if shared else ["-pie"]),
+        "//build:windows": ["/DEBUG"],
+        "//conditions:default": [],
+    }) + select({
+        "//build:opt_linux": [
+            "-Wl,-O1",
+            "-Wl,--gc-sections",
+        ],
+        "//build:opt_macos": ["-Wl,-dead_strip"],
+        "//build:opt_windows": [
+            "/OPT:ICF",
+            "/OPT:REF",
+        ],
+        "//conditions:default": [],
+    })
+
 def crashpad_objc_library(
         name,
         deps = [],
@@ -87,6 +184,8 @@ def crashpad_objc_library(
         deps = ["//:config"] + deps,
         copts = _CLANG_WARNINGS + _POSIX_HARDENING + [
             "-fobjc-arc",
+            "-fno-objc-arc-exceptions",
+            "-fobjc-call-cxx-cdtors",
             "-std=c++23",
         ] + select({
             "//build:dbg_clang": ["-g"],
@@ -115,10 +214,7 @@ def crashpad_objc_binary(
     cc_binary(
         name = name,
         deps = [":" + name + "_objc_srcs"],
-        linkopts = select({
-            "//build:opt_macos": ["-Wl,-dead_strip"],
-            "//conditions:default": [],
-        }) + linkopts,
+        linkopts = _binary_linkopts() + linkopts,
         target_compatible_with = ["@platforms//os:macos"],
         **kwargs
     )
@@ -127,6 +223,7 @@ def crashpad_cc_library(
         name,
         deps = [],
         defines = [],
+        local_defines = [],
         copts = [],
         cxxopts = [],
         linkopts = [],
@@ -136,81 +233,12 @@ def crashpad_cc_library(
     return cc_library(
         name = name,
         deps = ["//:config"] + deps,
-        cxxopts = select({
-            "//build:msvc-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
-            "//build:clang-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
-            "//build:clang": ["-std=c++23"],
-            "//build:gcc": ["-std=c++23"],
-        }) + cxxopts,
-        conlyopts = select({
-            "//build:clang": ["-std=c11"],
-            "//build:gcc": ["-std=c11"],
-            "//conditions:default": [],
-        }) + conlyopts,
-        defines = select({
-            "//build:msvc-cl": _WIN_DEFINES,
-            "//build:clang-cl": _WIN_DEFINES,
-            "//conditions:default": [],
-        }) + select({
-            "//build:linux": ["_FILE_OFFSET_BITS=64"],
-            "//conditions:default": [],
-        }) + defines,
-        copts = select({
-            "//build:msvc-cl": _MSVC_COMMON + _MSVC_SUPPRESSIONS,
-            "//build:clang-cl": _MSVC_COMMON + _CLANG_CL_SUPPRESSIONS,
-            "//build:clang": _CLANG_WARNINGS + _POSIX_HARDENING,
-            "//build:gcc": _GCC_WARNINGS + _POSIX_HARDENING,
-            "//conditions:default": [],
-        }) + select({
-            "//build:linux": ["-fPIC"],
-            "//build:macos": ["-fobjc-call-cxx-cdtors"],
-            "//conditions:default": [],
-        }) + select({
-            "//build:dbg_clang": ["-g"],
-            "//build:dbg_gcc": ["-g"],
-            "//build:dbg_msvc-cl": ["/Zi"],
-            "//build:opt_clang": ["-O3"],
-            "//build:opt_gcc": ["-O3"],
-            "//build:opt_msvc-cl": [
-                "/O2",
-                "/Ob2",
-                "/Oy-",
-                "/Zc:inline",
-            ],
-            "//conditions:default": [],
-        }) + select({
-            "//build:opt_linux": [
-                "-fdata-sections",
-                "-ffunction-sections",
-            ],
-            "//conditions:default": [],
-        }) + copts,
-        linkopts = select({
-            "//build:linux": [
-                "-Wl,--as-needed",
-                "-Wl,-z,noexecstack",
-                "-pthread",
-                "-ldl",
-            ],
-            "//build:macos": [
-                "-mmacosx-version-min=12.0",
-            ],
-            "//conditions:default": [],
-        }) + select({
-            "//build:opt_linux": [
-                "-Wl,-O1",
-                "-Wl,--gc-sections",
-            ],
-            "//build:opt_macos": [
-                "-Wl,-dead_strip",
-            ],
-            "//build:opt_windows": [
-                "/OPT:ICF",
-                "/OPT:REF",
-            ],
-            "//build:dbg_windows": ["/DEBUG"],
-            "//conditions:default": [],
-        }) + linkopts,
+        cxxopts = _cxxopts() + cxxopts,
+        conlyopts = _conlyopts() + conlyopts,
+        defines = _defines() + defines,
+        local_defines = _local_defines() + local_defines,
+        copts = _copts() + copts,
+        linkopts = _library_linkopts() + linkopts,
         linkstatic = linkstatic,
         **kwargs
     )
@@ -221,6 +249,7 @@ def crashpad_cc_binary(
         cxxopts = [],
         conlyopts = [],
         defines = [],
+        local_defines = [],
         copts = [],
         linkopts = [],
         linkstatic = True,
@@ -228,81 +257,12 @@ def crashpad_cc_binary(
     return cc_binary(
         name = name,
         deps = ["//:config"] + deps,
-        cxxopts = select({
-            "//build:msvc-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
-            "//build:clang-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
-            "//build:clang": ["-std=c++23"],
-            "//build:gcc": ["-std=c++23"],
-        }) + cxxopts,
-        conlyopts = select({
-            "//build:clang": ["-std=c11"],
-            "//build:gcc": ["-std=c11"],
-            "//conditions:default": [],
-        }) + conlyopts,
-        defines = select({
-            "//build:msvc-cl": _WIN_DEFINES,
-            "//build:clang-cl": _WIN_DEFINES,
-            "//conditions:default": [],
-        }) + select({
-            "//build:linux": ["_FILE_OFFSET_BITS=64"],
-            "//conditions:default": [],
-        }) + defines,
-        copts = select({
-            "//build:msvc-cl": _MSVC_COMMON + _MSVC_SUPPRESSIONS,
-            "//build:clang-cl": _MSVC_COMMON + _CLANG_CL_SUPPRESSIONS,
-            "//build:clang": _CLANG_WARNINGS + _POSIX_HARDENING,
-            "//build:gcc": _GCC_WARNINGS + _POSIX_HARDENING,
-            "//conditions:default": [],
-        }) + select({
-            "//build:linux": ["-fPIC"],
-            "//build:macos": ["-fobjc-call-cxx-cdtors"],
-            "//conditions:default": [],
-        }) + select({
-            "//build:dbg_clang": ["-g"],
-            "//build:dbg_gcc": ["-g"],
-            "//build:dbg_msvc-cl": ["/Zi"],
-            "//build:opt_clang": ["-O3"],
-            "//build:opt_gcc": ["-O3"],
-            "//build:opt_msvc-cl": [
-                "/O2",
-                "/Ob2",
-                "/Oy-",
-                "/Zc:inline",
-            ],
-            "//conditions:default": [],
-        }) + select({
-            "//build:opt_linux": [
-                "-fdata-sections",
-                "-ffunction-sections",
-            ],
-            "//conditions:default": [],
-        }) + copts,
-        linkopts = select({
-            "//build:linux": [
-                "-Wl,--as-needed",
-                "-Wl,-z,noexecstack",
-                "-pthread",
-                "-ldl",
-            ],
-            "//build:macos": [
-                "-mmacosx-version-min=12.0",
-            ],
-            "//conditions:default": [],
-        }) + select({
-            "//build:opt_linux": [
-                "-Wl,-O1",
-                "-Wl,--gc-sections",
-            ],
-            "//build:opt_macos": [
-                "-Wl,-dead_strip",
-            ],
-            "//build:opt_windows": [
-                "/OPT:ICF",
-                "/OPT:REF",
-            ],
-            "//build:dbg_windows": ["/DEBUG"],
-            "//conditions:default": [],
-        }) + linkopts,
+        cxxopts = _cxxopts() + cxxopts,
+        conlyopts = _conlyopts() + conlyopts,
+        defines = _defines() + defines,
+        local_defines = _local_defines() + local_defines,
+        copts = _copts() + copts,
+        linkopts = _binary_linkopts(shared = kwargs.get("linkshared", False)) + linkopts,
         linkstatic = linkstatic,
         **kwargs
     )
@@ -335,6 +295,7 @@ def crashpad_cc_test(
         cxxopts = [],
         conlyopts = [],
         defines = [],
+        local_defines = [],
         copts = [],
         linkopts = [],
         linkstatic = True,
@@ -343,81 +304,12 @@ def crashpad_cc_test(
     return cc_test(
         name = "crashpad_%s" % name,
         deps = ["//:config", "//test:googletest_main"] + deps,
-        cxxopts = select({
-            "//build:msvc-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
-            "//build:clang-cl": ["/std:c++23preview", "/Zc:__cplusplus"],
-            "//build:clang": ["-std=c++23"],
-            "//build:gcc": ["-std=c++23"],
-        }) + cxxopts,
-        conlyopts = select({
-            "//build:clang": ["-std=c11"],
-            "//build:gcc": ["-std=c11"],
-            "//conditions:default": [],
-        }) + conlyopts,
-        defines = select({
-            "//build:msvc-cl": _WIN_DEFINES,
-            "//build:clang-cl": _WIN_DEFINES,
-            "//conditions:default": [],
-        }) + select({
-            "//build:linux": ["_FILE_OFFSET_BITS=64"],
-            "//conditions:default": [],
-        }) + defines,
-        copts = select({
-            "//build:msvc-cl": _MSVC_COMMON + _MSVC_SUPPRESSIONS,
-            "//build:clang-cl": _MSVC_COMMON + _CLANG_CL_SUPPRESSIONS,
-            "//build:clang": _CLANG_WARNINGS + _POSIX_HARDENING,
-            "//build:gcc": _GCC_WARNINGS + _POSIX_HARDENING,
-            "//conditions:default": [],
-        }) + select({
-            "//build:linux": ["-fPIC"],
-            "//build:macos": ["-fobjc-call-cxx-cdtors"],
-            "//conditions:default": [],
-        }) + select({
-            "//build:dbg_clang": ["-g"],
-            "//build:dbg_gcc": ["-g"],
-            "//build:dbg_msvc-cl": ["/Zi"],
-            "//build:opt_clang": ["-O3"],
-            "//build:opt_gcc": ["-O3"],
-            "//build:opt_msvc-cl": [
-                "/O2",
-                "/Ob2",
-                "/Oy-",
-                "/Zc:inline",
-            ],
-            "//conditions:default": [],
-        }) + select({
-            "//build:opt_linux": [
-                "-fdata-sections",
-                "-ffunction-sections",
-            ],
-            "//conditions:default": [],
-        }) + copts,
-        linkopts = select({
-            "//build:linux": [
-                "-Wl,--as-needed",
-                "-Wl,-z,noexecstack",
-                "-pthread",
-                "-ldl",
-            ],
-            "//build:macos": [
-                "-mmacosx-version-min=12.0",
-            ],
-            "//conditions:default": [],
-        }) + select({
-            "//build:opt_linux": [
-                "-Wl,-O1",
-                "-Wl,--gc-sections",
-            ],
-            "//build:opt_macos": [
-                "-Wl,-dead_strip",
-            ],
-            "//build:opt_windows": [
-                "/OPT:ICF",
-                "/OPT:REF",
-            ],
-            "//build:dbg_windows": ["/DEBUG"],
-            "//conditions:default": [],
-        }) + linkopts,
+        cxxopts = _cxxopts() + cxxopts,
+        conlyopts = _conlyopts() + conlyopts,
+        defines = _defines() + defines,
+        local_defines = _local_defines() + local_defines,
+        copts = _copts() + copts,
+        linkopts = _binary_linkopts() + linkopts,
         linkstatic = linkstatic,
         size = size,
         **kwargs

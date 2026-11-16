@@ -3,12 +3,16 @@
 pkgs.mkShell {
   packages = with pkgs; [
     gn
-    bazel_8
+    bazel_9
     bazel-buildtools
-    llvmPackages_22.clang-tools
+    llvmPackages_23.clang-tools
   ];
 
   buildInputs = [
     pkgs.tzdata
   ];
+
+  shellHook = ''
+    unset BAZEL_COPTS BAZEL_CXXOPTS BAZEL_LINKOPTS
+  '';
 }

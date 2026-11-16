@@ -408,6 +408,12 @@ crashpad_cc_binary(
     name = "http_transport_test_server",
     testonly = True,
     srcs = ["net/http_transport_test_server.cc"],
+    # GN removes `Wexit_time_destructors` for this target (cpp-httplib).
+    copts = select({
+        "//build:clang": ["-Wno-exit-time-destructors"],
+        "//build:clang-cl": ["-Wno-exit-time-destructors"],
+        "//conditions:default": [],
+    }),
     defines = select({
         "//build:with_boringssl": ["CRASHPAD_USE_BORINGSSL"],
         "//conditions:default": [],
